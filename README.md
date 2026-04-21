@@ -1,253 +1,154 @@
-# DevPort - Portfolio Website
+# Portfolio Website
 
-A modern, futuristic personal portfolio website with dual-mode interface (Terminal & Website), built with Next.js 16, Tailwind CSS 4, and Framer Motion.
+An interactive terminal-style portfolio with visual UI and admin panel. Data is stored in Supabase database.
 
-## Features
+## Quick Setup (For Non-Technical Users)
 
-### Terminal Mode (Default)
-- Boot animation in centered box
-- Interactive CLI with autocomplete suggestions
-- Commands: help, about, skills, projects, contact, resume, gui, clear
-- Press Tab to autocomplete commands
-- Monospace font for typing
+### Step 1: Create Supabase Account
 
-### Website Mode
-- Modern glassmorphism UI
-- Profile photo with status indicator below bio
-- Skills with icons
-- Projects with images and live links
-- Resume preview and download (ATS-friendly)
-- Google Maps integration in contact
-- Responsive for all devices
+1. Go to [supabase.com](https://supabase.com)
+2. Click "Start your project" and create a free account
+3. Create a new project (name: portfolio, password: create a strong password)
 
-### Admin Panel
-Full CRUD for:
-- Profile (photo, bio, all social links, status)
-- Education (with GPA)
-- Experience
-- Projects (with images)
-- Skills
-- Blogs
-- Photos
+### Step 2: Setup Database
 
-## Quick Start
+1. In Supabase dashboard, click **SQL Editor** in the left menu
+2. Copy the contents of `supabase-schema.sql` 
+3. Paste and click **Run**
+4. You should see "Database schema created successfully!"
+
+### Step 3: Get Your Credentials
+
+1. Go to **Project Settings** (gear icon) → **API**
+2. Copy these values:
+   - **Project URL** (save as `NEXT_PUBLIC_SUPABASE_URL`)
+   - **anon public key** (save as `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
+
+### Step 4: Create Admin User
+
+1. In Supabase, go to **Authentication** → **Users**
+2. Click **Add user**
+3. Enter your email and password
+4. Click **Create user**
+
+### Step 5: Deploy to Vercel (Free)
+
+1. Go to [vercel.com](https://vercel.com)
+2. Sign up with GitHub
+3. click **Add New...** → **Project**
+4. Import your GitHub repository
+5. In **Environment Variables**, add:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+   ```
+6. Click **Deploy**
+
+### Step 6: Configure Your Portfolio
+
+1. Go to `your-domain.com/login`
+2. Sign in with your admin account
+3. Click **Settings** to upload your logo and set site title
+4. Click **Profile** to add your name, bio, photo, social links
+5. Add your education, experience, skills, and projects
+
+---
+
+## Development Setup (For Developers)
+
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+
+### Installation
 
 ```bash
 cd portfolio
 npm install
+```
+
+### Environment Variables
+
+Create `.env.local`:
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+```
+
+### Run Locally
+
+```bash
 npm run dev
 ```
 
-Open http://localhost:3000
+Open [http://localhost:3000](http://localhost:3000)
 
-## Supabase Setup (Required for Admin)
-
-1. Create project at https://supabase.com
-2. Go to SQL Editor and run this SQL:
-
-```sql
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- TABLE: profiles
-CREATE TABLE public.profiles (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name text,
-  role text,
-  bio text,
-  vision text,
-  location text,
-  profile_image text,
-  email text,
-  phone text,
-  status text DEFAULT 'Open to Work',
-  map_link text,
-  github_link text,
-  linkedin_link text,
-  twitter_link text,
-  facebook_link text,
-  instagram_link text,
-  discord_username text,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT profiles_pkey PRIMARY KEY (id)
-);
-
--- TABLE: education
-CREATE TABLE public.education (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  institution text NOT NULL,
-  degree text,
-  field_of_study text,
-  start_date text,
-  end_date text,
-  grade text,
-  currently_studying boolean DEFAULT false,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT education_pkey PRIMARY KEY (id)
-);
-
--- TABLE: experience
-CREATE TABLE public.experience (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  company text NOT NULL,
-  position text,
-  location text,
-  start_date text,
-  end_date text,
-  description text,
-  currently_working boolean DEFAULT false,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT experience_pkey PRIMARY KEY (id)
-);
-
--- TABLE: skills
-CREATE TABLE public.skills (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  category text NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT skills_pkey PRIMARY KEY (id)
-);
-
--- TABLE: projects
-CREATE TABLE public.projects (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  title text NOT NULL,
-  description text,
-  tech_stack text[],
-  github_link text,
-  live_link text,
-  image text,
-  featured boolean DEFAULT false,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT projects_pkey PRIMARY KEY (id)
-);
-
--- TABLE: photos
-CREATE TABLE public.photos (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  url text NOT NULL,
-  caption text,
-  category text DEFAULT 'work',
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT photos_pkey PRIMARY KEY (id)
-);
-
--- TABLE: blogs
-CREATE TABLE public.blogs (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  title text NOT NULL,
-  slug text NOT NULL UNIQUE,
-  content text,
-  excerpt text,
-  cover_image text,
-  tags text[],
-  published boolean DEFAULT false,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT blogs_pkey PRIMARY KEY (id)
-);
-
--- Enable RLS
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.education ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.experience ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.skills ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.photos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.blogs ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies (Public Read)
-CREATE POLICY "profiles_read" ON public.profiles FOR SELECT USING (true);
-CREATE POLICY "education_read" ON public.education FOR SELECT USING (true);
-CREATE POLICY "experience_read" ON public.experience FOR SELECT USING (true);
-CREATE POLICY "skills_read" ON public.skills FOR SELECT USING (true);
-CREATE POLICY "projects_read" ON public.projects FOR SELECT USING (true);
-CREATE POLICY "photos_read" ON public.photos FOR SELECT USING (true);
-CREATE POLICY "blogs_read" ON public.blogs FOR SELECT USING (true);
-
--- RLS Policies (Auth Write)
-CREATE POLICY "profiles_write" ON public.profiles FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "education_write" ON public.education FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "experience_write" ON public.experience FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "skills_write" ON public.skills FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "projects_write" ON public.projects FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "photos_write" ON public.photos FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "blogs_write" ON public.blogs FOR ALL USING (auth.role() = 'authenticated');
-
--- Insert sample data
-INSERT INTO public.profiles (name, role, bio, vision, location, email, status, github_link, linkedin_link, facebook_link, instagram_link, profile_image)
-VALUES ('Your Name', 'Software Engineer', 'Your bio...', 'Your vision...', 'Your Location', 'your@email.com', 'Open to Work', 'https://github.com/username', 'https://linkedin.com/in/username', 'https://facebook.com/username', 'https://instagram.com/username', 'https://images.unsplash.com/photo-...');
-```
-
-3. Go to Authentication → Users → Add user to create admin account
-4. Configure environment variables in `.env.local`:
-
-```
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-```
-
-## Configuration
-
-Edit profile data in `src/app/page.tsx`:
-
-```javascript
-const profile = {
-  name: "Your Name",
-  role: "Software Engineer",
-  bio: "Your bio...",
-  vision: "Your vision...",
-  location: "Your Location",
-  email: "your@email.com",
-  profile_image: "URL to photo",
-  github_link: "https://github.com/...",
-  linkedin_link: "https://linkedin.com/in/...",
-  twitter_link: "https://twitter.com/...",
-  facebook_link: "https://facebook.com/...",
-  instagram_link: "https://instagram.com/...",
-  status: "Open to Work",
-  map_link: "Google Maps embed URL",
-};
-```
-
-## Admin Pages
-
-- `/admin/login` - Login (after Supabase setup)
-- `/admin/dashboard` - Stats
-- `/admin/profile` - Profile & photo
-- `/admin/education` - Education with GPA
-- `/admin/experience` - Work experience
-- `/admin/projects` - Projects with images
-- `/admin/skills` - Skills
-- `/admin/blogs` - Blog posts
-- `/admin/photos` - Photo gallery
-
-## Terminal Commands
-
-| Command | Description |
-|---------|------------|
-| help | Show all commands |
-| about | About me |
-| skills | List skills |
-| projects | Show projects |
-| contact | Contact info |
-| resume | Download resume |
-| clear | Clear terminal |
-| gui | Switch to website |
-
-## Deployment
+### Build for Production
 
 ```bash
 npm run build
+npm start
 ```
-
-Deploy to Vercel with environment variables:
-- NEXT_PUBLIC_SUPABASE_URL
-- NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 ---
 
-Created by Salah Uddin Selim
+## Key Features
+
+- **Dual Mode**: Terminal interface (default) or Visual UI
+- **Dynamic Data**: All content from Supabase database
+- **Admin Panel**: Manage all content at `/admin`
+- **Image Upload**: Upload images directly from admin
+- **Responsive**: Works on all devices
+
+---
+
+## File Structure
+
+```
+src/
+├── app/
+│   ├── page.tsx              # Main dual-mode homepage
+│   ├── admin/                 # Admin dashboard
+│   │   ├── settings/         # Logo & title settings
+│   │   ├── profile/          # Profile management
+│   │   ├── education/       # Education CRUD
+│   │   ├── experience/      # Experience CRUD
+│   │   ├── skills/          # Skills management
+│   │   └── projects/        # Projects CRUD
+│   └── login/               # Admin login
+├── components/
+│   ├── terminal/            # Terminal component
+│   └── website/             # Website sections
+└── lib/
+    └── supabase.ts          # Supabase client
+```
+
+---
+
+## Tech Stack
+
+- Next.js 15
+- React 19
+- Tailwind CSS v4
+- Framer Motion
+- Supabase
+
+---
+
+## Troubleshooting
+
+### "Please sign in" error
+- Make sure you're signed in at `/login`
+- Check your Supabase URL and anon key are correct
+
+### Images not uploading
+- Check storage bucket exists in Supabase
+- Verify RLS policies allow uploads
+
+### Data not showing
+- Run the SQL schema in Supabase SQL Editor
+- Check you have data in each table
+
+### Need help?
+- Open an issue on GitHub
+- Email: support@example.com

@@ -1,317 +1,207 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Plus, Edit2, Trash2, ExternalLink, Github, X, Save, Image } from "lucide-react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase";
 
 interface Project {
-  id: string;
-  title: string;
+  id?: string;
+  name: string;
   description: string;
+  image_url: string;
   tech_stack: string[];
-  github_link: string;
-  live_link: string;
-  image: string;
+  github_url: string;
+  live_url: string;
   featured: boolean;
+  order_index: number;
 }
 
-const defaultProjects: Project[] = [
-  {
-    id: "1",
-    title: "Automated Fish Pond",
-    description: "IoT-based smart water quality monitoring system using Arduino with sensors for temperature, pH, turbidity, and gas. Automated water exchange and feeding system.",
-    tech_stack: ["Arduino", "C++", "Sensors", "IoT"],
-    github_link: "https://github.com/salahuddinselim",
-    live_link: "",
-    image: "https://images.unsplash.com/photo-1518182170546-0766ce6f6a56?w=600&h=400&fit=crop",
-    featured: true,
-  },
-  {
-    id: "2",
-    title: "AI Voice Assistant",
-    description: "Python-based voice assistant using SpeechRecognition and Pyttsx3 for executing commands, web search, and automation.",
-    tech_stack: ["Python", "AI", "Speech Recognition"],
-    github_link: "https://github.com/salahuddinselim",
-    live_link: "",
-    image: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=600&h=400&fit=crop",
-    featured: true,
-  },
-  {
-    id: "3",
-    title: "TournyMate",
-    description: "Full-stack web application using PHP and MySQL to manage tournaments, players, and live scores.",
-    tech_stack: ["PHP", "MySQL", "HTML", "CSS"],
-    github_link: "https://github.com/salahuddinselim",
-    live_link: "",
-    image: "https://images.unsplash.com/photo-1460925895917-afdab827c01f?w=600&h=400&fit=crop",
-    featured: false,
-  },
-  {
-    id: "4",
-    title: "Multilevel Puzzle Game",
-    description: "JavaFX-based team puzzle game with real-time chat, database tracking, and multithreading.",
-    tech_stack: ["Java", "JavaFX", "Multithreading"],
-    github_link: "https://github.com/salahuddinselim",
-    live_link: "",
-    image: "https://images.unsplash.com/photo-1551103782-8ab07afd45d1?w=600&h=400&fit=crop",
-    featured: false,
-  },
-];
-
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>(defaultProjects);
-  const [showForm, setShowForm] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [techInput, setTechInput] = useState("");
-  const [imagePreview, setImagePreview] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [items, setItems] = useState<Project[]>([]);
+  const [editing, setEditing] = useState<Project | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [uploading, setUploading] = useState(false);
 
-  const handleDelete = (id: string) => {
-    if (confirm("Delete this project?")) {
-      setProjects((prev) => prev.filter((p) => p.id !== id));
-    }
+  useEffect(() => {
+    fetchItems();
+  }, []);
+
+  const fetchItems = async () => {
+    const supabase = createClient();
+    const { data } = await supabase.from("projects").select("*");
+    if (data) setItems(data);
   };
 
-  const handleEdit = (project: Project) => {
-    setEditingProject(project);
-    setTechInput(project.tech_stack.join(", "));
-    setImagePreview(project.image || "");
-    setShowForm(true);
-  };
-
-  const handleAdd = () => {
-    setEditingProject({
-      id: "",
-      title: "",
-      description: "",
-      tech_stack: [],
-      github_link: "",
-      live_link: "",
-      image: "",
-      featured: false,
-    });
-    setTechInput("");
-    setImagePreview("");
-    setShowForm(true);
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-        setEditingProject((prev) => prev ? { ...prev, image: reader.result as string } : null);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSave = () => {
-    if (!editingProject?.title) return;
+  const uploadImage = async (file: File) => {
+    setUploading(true);
+    const supabase = createClient();
+    const fileExt = file.name.split(".").pop();
+    const fileName = `project-${Date.now()}.${fileExt}`;
     
-    const updatedProject: Project = {
-      ...editingProject,
-      id: editingProject.id || Date.now().toString(),
-      tech_stack: techInput.split(",").map(t => t.trim()).filter(Boolean),
-    };
-
-    if (editingProject.id) {
-      setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
-    } else {
-      setProjects(prev => [...prev, updatedProject]);
+    const { error } = await supabase.storage.from("portfolio").upload(fileName, file);
+    if (error) {
+      setMessage("Upload failed: " + error.message);
+      setUploading(false);
+      return null;
     }
+    
+    const { data: { publicUrl } } = supabase.storage.from("portfolio").getPublicUrl(fileName);
+    setUploading(false);
+    return publicUrl;
+  };
 
-    setShowForm(false);
-    setEditingProject(null);
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editing) return;
+    const url = await uploadImage(file);
+    if (url) setEditing({ ...editing, image_url: url });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+    setLoading(true);
+    setMessage("");
+
+    const supabase = createClient();
+    const { error } = await supabase.from("projects").upsert({ ...editing }, { onConflict: "id" });
+
+    if (error) {
+      setMessage("Error: " + error.message);
+    } else {
+      setMessage("Saved successfully!");
+      setEditing(null);
+      fetchItems();
+    }
+    setLoading(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this project?")) return;
+    const supabase = createClient();
+    await supabase.from("projects").delete().eq("id", id);
+    fetchItems();
+  };
+
+  const handleNew = () => {
+    setEditing({ name: "", description: "", image_url: "", tech_stack: [], github_url: "", live_url: "", featured: true, order_index: items.length });
   };
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold">Projects</h1>
-        <button 
-          onClick={handleAdd}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 transition-colors cursor-pointer"
-        >
-          <Plus size={18} />
-          Add Project
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="font-display text-3xl font-bold">Projects</h1>
+        <button onClick={handleNew} className="px-4 py-2 bg-cyan-500 text-bg rounded-lg hover:bg-cyan-400 transition-colors">
+          Add New
         </button>
       </div>
 
-      {showForm && editingProject && (
-        <div className="glass rounded-xl p-6 mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold">{editingProject.id ? "Edit Project" : "Add New Project"}</h2>
-            <button 
-              onClick={() => setShowForm(false)}
-              className="p-2 text-gray-400 hover:text-white transition-colors cursor-pointer"
-            >
-              <X size={18} />
-            </button>
-          </div>
-          
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">Project Title</label>
-              <input
-                type="text"
-                value={editingProject.title}
-                onChange={(e) => setEditingProject({ ...editingProject, title: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl glass outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all cursor-text"
-                placeholder="Project name"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">Tech Stack (comma separated)</label>
-              <input
-                type="text"
-                value={techInput}
-                onChange={(e) => setTechInput(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl glass outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all cursor-text"
-                placeholder="React, Node.js, MongoDB"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-sm text-gray-400 mb-2">Description</label>
-              <textarea
-                value={editingProject.description}
-                onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
-                rows={3}
-                className="w-full px-4 py-3 rounded-xl glass outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all resize-none cursor-text"
-                placeholder="Project description"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">Image URL</label>
-              <input
-                type="url"
-                value={imagePreview}
-                onChange={(e) => {
-                  setImagePreview(e.target.value);
-                  setEditingProject({ ...editingProject, image: e.target.value });
-                }}
-                className="w-full px-4 py-3 rounded-xl glass outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all cursor-text"
-                placeholder="https://..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">Or Upload Image</label>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleImageChange}
-                accept="image/*"
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl glass hover:bg-white/10 transition-colors cursor-pointer"
-              >
-                <Image size={16} />
-                Upload Image
-              </button>
-              {imagePreview && (
-                <div className="mt-2 w-20 h-20 rounded-lg overflow-hidden">
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                </div>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">GitHub Link</label>
-              <input
-                type="url"
-                value={editingProject.github_link}
-                onChange={(e) => setEditingProject({ ...editingProject, github_link: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl glass outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all cursor-text"
-                placeholder="https://github.com/..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">Live Demo Link</label>
-              <input
-                type="url"
-                value={editingProject.live_link}
-                onChange={(e) => setEditingProject({ ...editingProject, live_link: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl glass outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all cursor-text"
-                placeholder="https://..."
-              />
-            </div>
-            <div className="sm:col-span-2 flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="featured"
-                checked={editingProject.featured}
-                onChange={(e) => setEditingProject({ ...editingProject, featured: e.target.checked })}
-                className="w-4 h-4 rounded bg-white/5 border-white/10"
-              />
-              <label htmlFor="featured" className="text-sm text-gray-400">Featured Project</label>
-            </div>
-            <div className="sm:col-span-2">
-              <button
-                onClick={handleSave}
-                className="px-6 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 transition-colors cursor-pointer"
-              >
-                Save Project
-              </button>
-            </div>
-          </div>
+      {message && (
+        <div className={`p-4 rounded-lg mb-4 ${message.includes("Error") ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"}`}>
+          {message}
         </div>
       )}
 
-      <div className="space-y-4">
-        {projects.map((project) => (
-          <div
-            key={project.id}
-            className="glass rounded-xl p-6 flex items-start justify-between"
-          >
-            <div className="flex-1 flex gap-4">
-              {project.image && (
-                <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
-                  <img src={project.image} alt={project.title} className="w-full h-full object-cover" />
-                </div>
-              )}
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h3 className="font-semibold text-lg">{project.title}</h3>
-                  {project.featured && (
-                    <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-xs">
-                      Featured
-                    </span>
-                  )}
-                </div>
-                <p className="text-gray-400 text-sm mb-3">{project.description}</p>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {project.tech_stack.map((tech) => (
-                    <span key={tech} className="px-2 py-1 rounded-lg bg-white/5 text-xs">
-                      {tech}
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-3">
-                  {project.github_link && (
-                    <a href={project.github_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-gray-400 hover:text-white text-sm cursor-pointer">
-                      <Github size={14} /> Code
-                    </a>
-                  )}
-                  {project.live_link && (
-                    <a href={project.live_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-gray-400 hover:text-white text-sm cursor-pointer">
-                      <ExternalLink size={14} /> Live
-                    </a>
-                  )}
-                </div>
+      {items.length === 0 && !editing ? (
+        <div className="text-muted">No projects added yet. Click "Add New" to add.</div>
+      ) : (
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          {items.map((item) => (
+            <div key={item.id} className="glass rounded-2xl p-4">
+              {item.image_url && <img src={item.image_url} alt={item.name} className="w-full h-32 object-cover rounded-lg mb-3" />}
+              <h3 className="font-semibold mb-1">{item.name}</h3>
+              <p className="text-sm text-muted mb-2">{item.description?.slice(0, 60)}...</p>
+              <div className="flex gap-2">
+                <button onClick={() => setEditing(item)} className="text-sm text-cyan-400 hover:underline">Edit</button>
+                <button onClick={() => handleDelete(item.id!)} className="text-sm text-red-400 hover:underline">Delete</button>
               </div>
             </div>
-            <div className="flex gap-2 ml-4">
-              <button onClick={() => handleEdit(project)} className="p-2 text-gray-400 hover:text-white transition-colors cursor-pointer">
-                <Edit2 size={16} />
-              </button>
-              <button onClick={() => handleDelete(project.id)} className="p-2 text-gray-400 hover:text-red-400 transition-colors cursor-pointer">
-                <Trash2 size={16} />
-              </button>
+          ))}
+        </div>
+      )}
+
+      {editing && (
+        <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 max-w-2xl space-y-4">
+          <h2 className="font-display text-xl font-semibold mb-4">{editing.id ? "Edit" : "Add"} Project</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className="block text-sm text-muted mb-2">Project Name *</label>
+              <input
+                type="text"
+                required
+                value={editing.name}
+                onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm text-muted mb-2">Description</label>
+              <textarea
+                value={editing.description}
+                onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+                rows={3}
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50 resize-none"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm text-muted mb-2">Project Image</label>
+              <div className="flex items-center gap-4">
+                {editing.image_url && <img src={editing.image_url} alt="Project" className="w-20 h-20 object-cover rounded-lg" />}
+                <label className="px-4 py-2 glass rounded-lg text-sm cursor-pointer">
+                  {uploading ? "Uploading..." : "Upload Image"}
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                </label>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm text-muted mb-2">Tech Stack (comma-separated)</label>
+              <input
+                type="text"
+                value={editing.tech_stack?.join(", ")}
+                onChange={(e) => setEditing({ ...editing, tech_stack: e.target.value.split(", ").filter(Boolean) })}
+                placeholder="React, Node.js, MongoDB"
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-muted mb-2">GitHub URL</label>
+              <input
+                type="url"
+                value={editing.github_url}
+                onChange={(e) => setEditing({ ...editing, github_url: e.target.value })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-muted mb-2">Live URL</label>
+              <input
+                type="url"
+                value={editing.live_url}
+                onChange={(e) => setEditing({ ...editing, live_url: e.target.value })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
+              />
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="featured"
+                checked={editing.featured}
+                onChange={(e) => setEditing({ ...editing, featured: e.target.checked })}
+                className="mr-2"
+              />
+              <label htmlFor="featured" className="text-sm text-muted">Featured project</label>
             </div>
           </div>
-        ))}
-      </div>
+          <div className="flex gap-4">
+            <button type="submit" disabled={loading} className="px-6 py-2 bg-cyan-500 text-bg rounded-lg hover:bg-cyan-400 transition-colors disabled:opacity-50">
+              {loading ? "Saving..." : "Save"}
+            </button>
+            <button type="button" onClick={() => setEditing(null)} className="px-6 py-2 glass rounded-lg hover:bg-white/10 transition-colors">
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

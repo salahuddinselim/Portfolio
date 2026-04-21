@@ -1,235 +1,188 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { Plus, Trash2, X, Save } from "lucide-react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase";
 
 interface Education {
-  id: string;
+  id?: string;
   institution: string;
   degree: string;
   field_of_study: string;
   start_date: string;
   end_date: string;
-  grade: string;
-  currently_studying: boolean;
+  location: string;
+  description: string;
+  order_index: number;
 }
 
-const defaultEducation: Education[] = [
-  { id: "1", institution: "United International University", degree: "BSc", field_of_study: "Computer Science & Engineering", start_date: "2022", end_date: "", grade: "", currently_studying: true },
-  { id: "2", institution: "Pirganj Govt. College", degree: "HSC", field_of_study: "Science", start_date: "2018", end_date: "2020", grade: "5.00", currently_studying: false },
-  { id: "3", institution: "Pirganj Pilot High School", degree: "SSC", field_of_study: "Science", start_date: "2013", end_date: "2018", grade: "5.00", currently_studying: false },
-];
-
 export default function EducationPage() {
-  const [education, setEducation] = useState<Education[]>(defaultEducation);
-  const [showForm, setShowForm] = useState(false);
+  const [items, setItems] = useState<Education[]>([]);
   const [editing, setEditing] = useState<Education | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const handleSave = async () => {
-    setSaving(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  useEffect(() => {
+    fetchItems();
+  }, []);
+
+  const fetchItems = async () => {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("education")
+      .select("*")
+      ;
+    if (data) setItems(data);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Delete this education?")) {
-      setEducation((prev) => prev.filter((e) => e.id !== id));
-    }
-  };
-
-  const handleEdit = (edu: Education) => {
-    setEditing(edu);
-    setShowForm(true);
-  };
-
-  const handleAdd = () => {
-    setEditing({
-      id: "",
-      institution: "",
-      degree: "",
-      field_of_study: "",
-      start_date: "",
-      end_date: "",
-      grade: "",
-      currently_studying: false,
-    });
-    setShowForm(true);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editing) return;
-    
-    const newEdu: Education = {
-      ...editing,
-      id: editing.id || Date.now().toString(),
-      institution: editing.institution || "",
-      degree: editing.degree || "",
-      field_of_study: editing.field_of_study || "",
-      start_date: editing.start_date || "",
-      end_date: editing.currently_studying ? "" : (editing.end_date || ""),
-      grade: editing.grade || "",
-      currently_studying: editing.currently_studying,
-    };
-    
-    if (editing.id) {
-      setEducation((prev) => prev.map((e) => (e.id === editing.id ? newEdu : e)));
+    setLoading(true);
+    setMessage("");
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("education")
+      .upsert({ ...editing }, { onConflict: "id" });
+
+    if (error) {
+      setMessage("Error: " + error.message);
     } else {
-      setEducation((prev) => [...prev, newEdu]);
+      setMessage("Saved successfully!");
+      setEditing(null);
+      fetchItems();
     }
-    setShowForm(false);
-    setEditing(null);
+    setLoading(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this item?")) return;
+    const supabase = createClient();
+    await supabase.from("education").delete().eq("id", id);
+    fetchItems();
+  };
+
+  const handleNew = () => {
+    setEditing({ institution: "", degree: "", field_of_study: "", start_date: "", end_date: "", location: "", description: "", order_index: items.length });
   };
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold">Education</h1>
-        <div className="flex gap-3">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 transition-colors disabled:opacity-50 cursor-pointer"
-          >
-            <Save size={18} />
-            {saving ? "Saving..." : saved ? "Saved!" : "Save"}
-          </button>
-          <button
-            onClick={handleAdd}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 transition-colors cursor-pointer"
-          >
-            <Plus size={18} />
-            Add Education
-          </button>
-        </div>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="font-display text-3xl font-bold">Education</h1>
+        <button onClick={handleNew} className="px-4 py-2 bg-cyan-500 text-bg rounded-lg hover:bg-cyan-400 transition-colors">
+          Add New
+        </button>
       </div>
 
-      {showForm && editing && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass rounded-xl p-6 mb-8"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold">{editing.id ? "Edit Education" : "Add Education"}</h2>
-            <button onClick={() => { setShowForm(false); setEditing(null); }} className="p-2 text-gray-400 hover:text-white transition-colors cursor-pointer">
-              <X size={18} />
-            </button>
-          </div>
-          <form onSubmit={handleSubmit} className="grid sm:grid-cols-2 gap-4">
+      {message && (
+        <div className={`p-4 rounded-lg mb-4 ${message.includes("Error") ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"}`}>
+          {message}
+        </div>
+      )}
+
+      {items.length === 0 && !editing ? (
+        <div className="text-muted">No education added yet. Click "Add New" to add.</div>
+      ) : (
+        <div className="space-y-4 mb-8">
+          {items.map((item) => (
+            <div key={item.id} className="glass rounded-2xl p-6 flex justify-between items-start">
+              <div>
+                <h3 className="font-semibold text-lg">{item.institution}</h3>
+                <p className="text-muted">{item.degree}</p>
+                <p className="text-sm text-muted">{item.start_date} - {item.end_date}</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setEditing(item)} className="p-2 hover:text-cyan-400 transition-colors">Edit</button>
+                <button onClick={() => handleDelete(item.id!)} className="p-2 hover:text-red-400 transition-colors">Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editing && (
+        <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 max-w-2xl space-y-4">
+          <h2 className="font-display text-xl font-semibold mb-4">{editing.id ? "Edit" : "Add"} Education</h2>
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Institution</label>
+              <label className="block text-sm text-muted mb-2">Institution *</label>
               <input
                 type="text"
+                required
                 value={editing.institution}
                 onChange={(e) => setEditing({ ...editing, institution: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl glass outline-none focus:ring-2 focus:ring-cyan-500/50 cursor-text"
-                required
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Degree/Certificate</label>
+              <label className="block text-sm text-muted mb-2">Degree *</label>
               <input
                 type="text"
+                required
                 value={editing.degree}
                 onChange={(e) => setEditing({ ...editing, degree: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl glass outline-none focus:ring-2 focus:ring-cyan-500/50 cursor-text"
-                required
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Field of Study</label>
+              <label className="block text-sm text-muted mb-2">Field of Study</label>
               <input
                 type="text"
                 value={editing.field_of_study}
                 onChange={(e) => setEditing({ ...editing, field_of_study: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl glass outline-none focus:ring-2 focus:ring-cyan-500/50 cursor-text"
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Grade/GPA</label>
+              <label className="block text-sm text-muted mb-2">Location</label>
               <input
                 type="text"
-                value={editing.grade}
-                onChange={(e) => setEditing({ ...editing, grade: e.target.value })}
-                placeholder="e.g., 5.00 / 5.00"
-                className="w-full px-4 py-3 rounded-xl glass outline-none focus:ring-2 focus:ring-cyan-500/50 cursor-text"
+                value={editing.location}
+                onChange={(e) => setEditing({ ...editing, location: e.target.value })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Start Year</label>
+              <label className="block text-sm text-muted mb-2">Start Date</label>
               <input
                 type="text"
+                placeholder="e.g., 2022"
                 value={editing.start_date}
                 onChange={(e) => setEditing({ ...editing, start_date: e.target.value })}
-                placeholder="e.g., 2022"
-                className="w-full px-4 py-3 rounded-xl glass outline-none focus:ring-2 focus:ring-cyan-500/50 cursor-text"
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-2">End Year</label>
+              <label className="block text-sm text-muted mb-2">End Date</label>
               <input
                 type="text"
+                placeholder="e.g., 2026 or Present"
                 value={editing.end_date}
                 onChange={(e) => setEditing({ ...editing, end_date: e.target.value })}
-                placeholder="e.g., 2026 or leave empty if studying"
-                className="w-full px-4 py-3 rounded-xl glass outline-none focus:ring-2 focus:ring-cyan-500/50 cursor-text"
-                disabled={editing.currently_studying}
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
               />
-            </div>
-            <div className="sm:col-span-2 flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="currently"
-                checked={editing.currently_studying}
-                onChange={(e) => setEditing({ ...editing, currently_studying: e.target.checked, end_date: e.target.checked ? "" : editing.end_date })}
-                className="w-4 h-4 rounded bg-white/5 border-white/10"
-              />
-              <label htmlFor="currently" className="text-sm text-gray-400">Currently Studying</label>
-            </div>
-            <div className="sm:col-span-2">
-              <button type="submit" className="px-6 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 transition-colors cursor-pointer">
-                Save Education
-              </button>
-            </div>
-          </form>
-        </motion.div>
-      )}
-
-      <div className="space-y-4">
-        {education.map((edu) => (
-          <div key={edu.id} className="glass rounded-xl p-6 flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h3 className="font-semibold text-lg">{edu.institution}</h3>
-                {edu.currently_studying && (
-                  <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-xs">Current</span>
-                )}
-              </div>
-              <div className="text-gray-400 text-sm">
-                {edu.degree} {edu.field_of_study && `in ${edu.field_of_study}`}
-              </div>
-              <div className="text-gray-500 text-sm mt-1">
-                {edu.start_date} - {edu.currently_studying ? "Present" : edu.end_date}
-                {edu.grade && ` • GPA: ${edu.grade}/5.00`}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => handleEdit(edu)} className="p-2 text-gray-400 hover:text-white transition-colors cursor-pointer">
-                Edit
-              </button>
-              <button onClick={() => handleDelete(edu.id)} className="p-2 text-gray-400 hover:text-red-400 transition-colors cursor-pointer">
-                <Trash2 size={16} />
-              </button>
             </div>
           </div>
-        ))}
-      </div>
+          <div>
+            <label className="block text-sm text-muted mb-2">Description</label>
+            <textarea
+              value={editing.description}
+              onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+              rows={3}
+              className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50 resize-none"
+            />
+          </div>
+          <div className="flex gap-4">
+            <button type="submit" disabled={loading} className="px-6 py-2 bg-cyan-500 text-bg rounded-lg hover:bg-cyan-400 transition-colors disabled:opacity-50">
+              {loading ? "Saving..." : "Save"}
+            </button>
+            <button type="button" onClick={() => setEditing(null)} className="px-6 py-2 glass rounded-lg hover:bg-white/10 transition-colors">
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

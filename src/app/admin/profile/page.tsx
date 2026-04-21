@@ -1,214 +1,319 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { motion } from "framer-motion";
-import { Save, Upload, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase";
 
-interface ProfileForm {
+interface Profile {
+  id?: string;
   name: string;
   role: string;
   bio: string;
-  vision: string;
-  location: string;
   email: string;
-  phone: string;
-  profile_image: string;
-  status: string;
-  map_link: string;
+  location: string;
   github_link: string;
   linkedin_link: string;
-  twitter_link: string;
   facebook_link: string;
   instagram_link: string;
-  discord_username: string;
+  profile_image: string;
 }
-
-const defaultProfile: ProfileForm = {
-  name: "Salah Uddin Selim",
-  role: "Software Engineer",
-  bio: "Computer Science and Engineering student at United International University with strong skills in programming, software development, and problem-solving.",
-  vision: "Passionate about building impactful solutions and continuously learning modern technologies.",
-  location: "Vatara, Dhaka, Bangladesh",
-  email: "selimsalahuddin19@gmail.com",
-  phone: "+880 1234 567890",
-  profile_image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face",
-  status: "Open to Work",
-  map_link: "",
-  github_link: "https://github.com/salahuddinselim",
-  linkedin_link: "https://linkedin.com/in/salahuddinselim",
-  twitter_link: "",
-  facebook_link: "https://facebook.com/salahuddinselim",
-  instagram_link: "https://instagram.com/salahuddinselim",
-  discord_username: "selim#1234",
-};
 
 export default function ProfilePage() {
-  const [form, setForm] = useState<ProfileForm>(defaultProfile);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string>(defaultProfile.profile_image);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [profile, setProfile] = useState<Profile>({
+    name: "",
+    role: "",
+    bio: "",
+    email: "",
+    location: "",
+    github_link: "",
+    linkedin_link: "",
+    facebook_link: "",
+    instagram_link: "",
+    profile_image: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [uploading, setUploading] = useState(false);
 
-  const handleChange = (field: keyof ProfileForm, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-    setSaved(false);
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase.from("profiles").select("*").limit(1).maybeSingle();
+        if (data) {
+          setProfile({
+            name: data.name || "",
+            role: data.role || "",
+            bio: data.bio || "",
+            email: data.email || "",
+            location: data.location || "",
+            github_link: data.github_link || "",
+            linkedin_link: data.linkedin_link || "",
+            facebook_link: data.facebook_link || "",
+            instagram_link: data.instagram_link || "",
+            profile_image: data.profile_image || "",
+          });
+        }
+      } catch (e) {
+        console.log("No profile found", e);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  const uploadImage = async (file: File) => {
+    setUploading(true);
+    setMessage("");
+    const supabase = createClient();
+    const fileExt = file.name.split(".").pop();
+    const fileName = `profile-${Date.now()}.${fileExt}`;
+    
+    try {
+      const { data, error } = await supabase.storage
+        .from("portfolio")
+        .upload(fileName, file, { upsert: true });
+      
+      if (error) {
+        if (error.message.includes("Bucket not found")) {
+          setMessage("Storage bucket not configured. Please paste image URL instead.");
+        } else {
+          setMessage("Upload failed: " + error.message);
+        }
+        setUploading(false);
+        return null;
+      }
+      
+      const { data: urlData } = supabase.storage
+        .from("portfolio")
+        .getPublicUrl(fileName);
+      
+      setUploading(false);
+      return urlData?.publicUrl || "";
+    } catch (err: any) {
+      setMessage("Storage not configured. Please paste image URL instead.");
+      setUploading(false);
+      return null;
+    }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-        handleChange("profile_image", reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    
+    const url = await uploadImage(file);
+    if (url) {
+      setProfile({ ...profile, profile_image: url });
     }
   };
 
-  const handleImageUrlChange = (url: string) => {
-    setImagePreview(url);
-    handleChange("profile_image", url);
-  };
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage("");
 
-  const handleSave = async () => {
-    setSaving(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-  };
+    const supabase = createClient();
+    
+    const existing = await supabase.from("profiles").select("id").limit(1).maybeSingle();
+    
+    if (existing?.data?.id) {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          name: profile.name,
+          role: profile.role,
+          bio: profile.bio,
+          email: profile.email,
+          location: profile.location,
+          github_link: profile.github_link,
+          linkedin_link: profile.linkedin_link,
+          facebook_link: profile.facebook_link,
+          instagram_link: profile.instagram_link,
+          profile_image: profile.profile_image,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing.data.id);
 
-  interface FieldDef {
-  key: string;
-  label: string;
-  type: string;
-  rows?: number;
-}
+      if (error) {
+        setMessage("Error: " + error.message);
+      } else {
+        setMessage("Profile updated successfully!");
+      }
+    } else {
+      const { error } = await supabase
+        .from("profiles")
+        .insert(profile);
 
-const fieldGroups: { title: string; fields: FieldDef[] }[] = [
-    {
-      title: "Basic Info",
-      fields: [
-        { key: "name", label: "Full Name", type: "text" },
-        { key: "role", label: "Role/Title", type: "text" },
-        { key: "location", label: "Location", type: "text" },
-        { key: "email", label: "Email", type: "email" },
-        { key: "phone", label: "Phone", type: "text" },
-      ]
-    },
-    {
-      title: "About",
-      fields: [
-        { key: "bio", label: "Bio", type: "textarea", rows: 4 },
-        { key: "vision", label: "Vision", type: "textarea", rows: 3 },
-      ]
-    },
-    {
-      title: "Social Links",
-      fields: [
-        { key: "github_link", label: "GitHub URL", type: "url" },
-        { key: "linkedin_link", label: "LinkedIn URL", type: "url" },
-        { key: "twitter_link", label: "Twitter URL", type: "url" },
-        { key: "facebook_link", label: "Facebook URL", type: "url" },
-        { key: "instagram_link", label: "Instagram URL", type: "url" },
-        { key: "discord_username", label: "Discord Username", type: "text" },
-      ]
+      if (error) {
+        setMessage("Error: " + error.message);
+      } else {
+        setMessage("Profile created successfully!");
+      }
     }
-  ];
+    setLoading(false);
+  };
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold">Profile Settings</h1>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 transition-colors disabled:opacity-50 cursor-pointer"
-        >
-          <Save size={18} />
-          {saving ? "Saving..." : saved ? "Saved!" : "Save All"}
-        </button>
-      </div>
+      <h1 className="font-display text-3xl font-bold mb-8">Profile Management</h1>
+      
+      <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
+        {message && (
+          <div className={`p-4 rounded-lg ${message.includes("Error") ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"}`}>
+            {message}
+          </div>
+        )}
 
-      <div className="grid lg:grid-cols-4 gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="lg:col-span-1"
-        >
-          <h2 className="font-semibold mb-4">Profile Photo</h2>
-          <div className="space-y-4">
-            <div className="relative w-40 h-40 mx-auto rounded-full overflow-hidden border-4 border-cyan-500/30">
-              <img
-                src={imagePreview}
-                alt="Profile"
-                className="w-full h-full object-cover"
+        <div className="glass rounded-2xl p-6 space-y-6">
+          <h2 className="font-display text-xl font-semibold">Basic Information</h2>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-muted mb-2">Name *</label>
+              <input
+                type="text"
+                required
+                value={profile.name}
+                onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
               />
             </div>
-            
-            <div className="text-center space-y-3">
+            <div>
+              <label className="block text-sm text-muted mb-2">Role</label>
               <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleImageChange}
-                accept="image/*"
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl glass hover:bg-white/10 transition-colors cursor-pointer w-full justify-center"
-              >
-                <Upload size={16} />
-                Upload Photo
-              </button>
-
-              <input
-                type="url"
-                value={form.profile_image}
-                onChange={(e) => handleImageUrlChange(e.target.value)}
-                placeholder="Image URL"
-                className="w-full px-3 py-2 rounded-xl glass outline-none focus:ring-2 focus:ring-cyan-500/50 text-sm cursor-text"
+                type="text"
+                value={profile.role}
+                onChange={(e) => setProfile({ ...profile, role: e.target.value })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
               />
             </div>
           </div>
-        </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="lg:col-span-3 space-y-6"
-        >
-          {fieldGroups.map((group, gIdx) => (
-            <div key={group.title} className="glass rounded-xl p-6">
-              <h2 className="font-semibold mb-4">{group.title}</h2>
-              <div className="grid sm:grid-cols-2 gap-4">
-                {group.fields.map((field) => (
-                  <div key={field.key} className={field.type === "textarea" ? "sm:col-span-2" : ""}>
-                    <label className="block text-sm text-gray-400 mb-2">{field.label}</label>
-                    {field.type === "textarea" ? (
-                      <textarea
-                        value={form[field.key as keyof ProfileForm] as string}
-                        onChange={(e) => handleChange(field.key as keyof ProfileForm, e.target.value)}
-                        rows={field.rows || 3}
-                        className="w-full px-4 py-3 rounded-xl glass outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all cursor-text"
-                      />
-                    ) : (
-                      <input
-                        type={field.type}
-                        value={form[field.key as keyof ProfileForm] as string}
-                        onChange={(e) => handleChange(field.key as keyof ProfileForm, e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl glass outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all cursor-text"
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
+          <div>
+            <label className="block text-sm text-muted mb-2">Bio</label>
+            <textarea
+              value={profile.bio}
+              onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+              rows={4}
+              className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50 resize-none"
+            />
+          </div>
+        </div>
+
+        <div className="glass rounded-2xl p-6 space-y-6">
+          <h2 className="font-display text-xl font-semibold">Profile Photo</h2>
+          
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              {profile.profile_image ? (
+                <img src={profile.profile_image} alt="Profile" className="w-20 h-20 object-cover rounded-lg" />
+              ) : (
+                <div className="w-20 h-20 rounded-lg bg-white/5 flex items-center justify-center text-muted">
+                  No image
+                </div>
+              )}
+              <label className="px-4 py-2 glass rounded-lg text-sm hover:bg-white/10 transition-colors cursor-pointer">
+                {uploading ? "Uploading..." : "Upload Photo"}
+                <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+              </label>
+              {profile.profile_image && (
+                <button
+                  type="button"
+                  onClick={() => setProfile({ ...profile, profile_image: "" })}
+                  className="px-4 py-2 text-red-400 text-sm hover:text-red-300"
+                >
+                  Remove
+                </button>
+              )}
             </div>
-          ))}
-        </motion.div>
-      </div>
+            
+            <div>
+              <label className="block text-sm text-muted mb-2">Or paste image URL</label>
+              <input
+                type="url"
+                value={profile.profile_image}
+                onChange={(e) => setProfile({ ...profile, profile_image: e.target.value })}
+                placeholder="https://example.com/photo.jpg"
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="glass rounded-2xl p-6 space-y-6">
+          <h2 className="font-display text-xl font-semibold">Contact Information</h2>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-muted mb-2">Email</label>
+              <input
+                type="email"
+                value={profile.email}
+                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-muted mb-2">Location</label>
+              <input
+                type="text"
+                value={profile.location}
+                onChange={(e) => setProfile({ ...profile, location: e.target.value })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="glass rounded-2xl p-6 space-y-6">
+          <h2 className="font-display text-xl font-semibold">Social Links</h2>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-muted mb-2">GitHub URL</label>
+              <input
+                type="url"
+                value={profile.github_link}
+                onChange={(e) => setProfile({ ...profile, github_link: e.target.value })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-muted mb-2">LinkedIn URL</label>
+              <input
+                type="url"
+                value={profile.linkedin_link}
+                onChange={(e) => setProfile({ ...profile, linkedin_link: e.target.value })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-muted mb-2">Facebook URL</label>
+              <input
+                type="url"
+                value={profile.facebook_link}
+                onChange={(e) => setProfile({ ...profile, facebook_link: e.target.value })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-muted mb-2">Instagram URL</label>
+              <input
+                type="url"
+                value={profile.instagram_link}
+                onChange={(e) => setProfile({ ...profile, instagram_link: e.target.value })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-text focus:outline-none focus:border-cyan-500/50"
+              />
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="px-6 py-3 bg-cyan-500 text-bg font-medium rounded-lg hover:bg-cyan-400 transition-colors glow-cyan disabled:opacity-50"
+        >
+          {loading ? "Saving..." : "Save Profile"}
+        </button>
+      </form>
     </div>
   );
 }

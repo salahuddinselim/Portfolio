@@ -2,391 +2,551 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { jsPDF } from "jspdf";
+import { createClient } from "@/lib/supabase";
+import { generateResumePDF } from "@/lib/resume";
 
-interface TerminalProps {
-  onSwitchToGUI: () => void;
+interface Profile {
+  name?: string;
+  role?: string;
+  email?: string;
+  location?: string;
+  bio?: string;
+  github_link?: string;
+  linkedin_link?: string;
 }
 
-interface CommandOutput {
+interface Skill {
   id: string;
-  command: string;
-  output: React.ReactNode;
+  name: string;
+  category: string;
 }
 
-const bootLines = [
-  { text: "Initializing system...", delay: 0 },
-  { text: "Loading portfolio...", delay: 800 },
-  { text: "Access granted.", delay: 1600 },
-];
+interface Project {
+  id: string;
+  title: string;
+  description: string;
+  tech_stack: string[];
+  github_link?: string;
+  live_link?: string;
+}
 
-const profile = {
-  name: "Salah Uddin Selim",
-  role: "Software Engineer",
-  shortBio: "CSE student at United International University. Passionate about building impactful solutions with modern technologies.",
-  skills: [
-    "Programming: C, C++, Java, Python, JavaScript",
-    "Web Development: HTML, CSS, Bootstrap, PHP, MySQL",
-    "Tools: Arduino, JavaFX, Git, GitHub",
-  ],
-  projects: [
-    { name: "Automated Fish Pond", desc: "IoT-based smart water quality monitoring system" },
-    { name: "AI Voice Assistant", desc: "Python-based voice assistant with speech recognition" },
-    { name: "TournyMate", desc: "Full-stack tournament management web application" },
-    { name: "Multilevel Puzzle Game", desc: "JavaFX-based team puzzle game with real-time chat" },
-  ],
-  contact: {
-    email: "selimsalahuddin19@gmail.com",
-    github: "https://github.com/salahuddinselim",
-    linkedin: "https://linkedin.com/in/salahuddinselim",
-    location: "Vatara, Dhaka, Bangladesh",
-  },
+interface Education {
+  id: string;
+  institution: string;
+  degree: string;
+  field_of_study?: string;
+  start_date: string;
+  end_date?: string;
+  currently_studying?: boolean;
+}
+
+interface Experience {
+  id: string;
+  company: string;
+  position: string;
+  start_date: string;
+  end_date?: string;
+  currently_working?: boolean;
+  description?: string;
+}
+
+interface TerminalData {
+  profile: Profile | null;
+  skills: Skill[];
+  projects: Project[];
+  education: Education[];
+  experience: Experience[];
+}
+
+const commands = {
+  help: { description: "Show all available commands", usage: "help" },
+  about: { description: "Learn about me and my background", usage: "about" },
+  skills: { description: "View my technical skills and expertise", usage: "skills" },
+  projects: { description: "Browse my featured projects", usage: "projects" },
+  contact: { description: "Get my contact information", usage: "contact" },
+  resume: { description: "View resume info", usage: "resume" },
+  "resume download": { description: "Download resume as PDF", usage: "resume download" },
+  github: { description: "Visit my GitHub profile", usage: "github" },
+  linkedin: { description: "Visit my LinkedIn profile", usage: "linkedin" },
+  gui: { description: "Switch to visual interface mode", usage: "gui" },
+  clear: { description: "Clear the terminal screen", usage: "clear" },
+  whoami: { description: "Display current user info", usage: "whoami" },
+  date: { description: "Show current date and time", usage: "date" },
+  neofetch: { description: "System information display", usage: "neofetch" },
+  education: { description: "View my education background", usage: "education" },
+  experience: { description: "View my work experience", usage: "experience" },
 };
 
-const commands = [
-  { cmd: "help", desc: "Show this help message" },
-  { cmd: "about", desc: "About me" },
-  { cmd: "skills", desc: "List my skills" },
-  { cmd: "projects", desc: "Show my projects" },
-  { cmd: "contact", desc: "Contact information" },
-  { cmd: "resume", desc: "Download resume" },
-  { cmd: "clear", desc: "Clear terminal" },
-  { cmd: "gui", desc: "Switch to Website Mode" },
-];
-
-export default function Terminal({ onSwitchToGUI }: TerminalProps) {
-  const [bootIndex, setBootIndex] = useState(-1);
-  const [input, setInput] = useState("");
-  const [outputs, setOutputs] = useState<CommandOutput[]>([]);
-  const [showCursor, setShowCursor] = useState(true);
-  const [isReady, setIsReady] = useState(false);
-  const [suggestion, setSuggestion] = useState<string>("");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const terminalRef = useRef<HTMLDivElement>(null);
+const BootSequence = ({ onComplete }: { onComplete: () => void }) => {
+  const lines = [
+    { text: "INITIALIZING SYSTEM...", delay: 0 },
+    { text: "LOADING KERNEL MODULES...", delay: 800 },
+    { text: "ESTABLISHING SECURE CONNECTION...", delay: 1600 },
+    { text: "FETCHING DATABASE...", delay: 2000 },
+    { text: "ACCESS GRANTED", delay: 2400, success: true },
+  ];
 
   useEffect(() => {
-    const timer = setInterval(() => setShowCursor(v => !v), 530);
-    return () => clearInterval(timer);
-  }, []);
+    const timer = setTimeout(onComplete, 3200);
+    return () => clearTimeout(timer);
+  }, [onComplete]);
 
-  useEffect(() => {
-    if (bootIndex < bootLines.length - 1) {
-      const timeout = setTimeout(() => setBootIndex(i => i + 1), bootLines[bootIndex + 1]?.delay || 500);
-      return () => clearTimeout(timeout);
-    } else if (bootIndex === bootLines.length - 1) {
-      setTimeout(() => setIsReady(true), 300);
-    }
-  }, [bootIndex]);
-
-  useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
-    }
-  }, [outputs]);
-
-  useEffect(() => {
-    if (input.length > 0 && isReady) {
-      const matched = commands.find(c => c.cmd.startsWith(input.toLowerCase()));
-      if (matched && matched.cmd !== input.toLowerCase()) {
-        setSuggestion(matched.cmd);
-      } else {
-        setSuggestion("");
-      }
-    } else {
-      setSuggestion("");
-    }
-  }, [input, isReady]);
-
-  const generateResumePDF = useCallback(() => {
-    const doc = new jsPDF();
-    
-    doc.setFontSize(20);
-    doc.setFont("helvetica", "bold");
-    doc.text("SALAH UDDIN SELIM", 20, 20);
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(100);
-    doc.text("Email: selimsalahuddin19@gmail.com | Location: Vatara, Dhaka, Bangladesh", 20, 28);
-    doc.text("GitHub: github.com/salahuddinselim", 20, 34);
-    
-    doc.setDrawColor(200);
-    doc.line(20, 40, 190, 40);
-    
-    doc.setFontSize(12);
-    doc.setTextColor(0);
-    doc.setFont("helvetica", "bold");
-    doc.text("PROFESSIONAL SUMMARY", 20, 48);
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Computer Science and Engineering student with strong skills in programming, software", 20, 54);
-    doc.text("development, and problem-solving. Experienced in IoT, AI, and full-stack web development.", 20, 60);
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("EDUCATION", 20, 72);
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("BSc in Computer Science & Engineering | United International University | 2022 - Present", 20, 78);
-    doc.text("HSC | Pirganj Govt. College | 2018 - 2020 | GPA: 5.00", 20, 84);
-    doc.text("SSC | Pirganj Pilot High School | 2013 - 2018 | GPA: 5.00", 20, 90);
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("SKILLS", 20, 102);
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Programming: C, C++, Java, Python, JavaScript", 20, 108);
-    doc.text("Web Development: HTML, CSS, Bootstrap, PHP, MySQL", 20, 114);
-    doc.text("Tools: Arduino, JavaFX, Git, GitHub", 20, 120);
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("PROJECTS", 20, 132);
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("1. Automated Fish Pond - IoT water quality monitoring system", 20, 138);
-    doc.text("2. AI Voice Assistant - Python-based voice assistant", 20, 144);
-    doc.text("3. TournyMate - Full-stack tournament management web app", 20, 150);
-    doc.text("4. Multilevel Puzzle Game - JavaFX team puzzle game", 20, 156);
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("EXPERIENCE", 20, 168);
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Full-Stack Developer | Freelance | 2022 - Present", 20, 174);
-    doc.text("Building web applications and IoT solutions for clients worldwide.", 20, 180);
-    
-    doc.save("Salah_Uddin_Selim_Resume.pdf");
-  }, []);
-
-  const commandsOutput: Record<string, React.ReactNode> = {
-    help: (
-      <div className="space-y-2">
-        <div className="text-cyan-400 mb-2">Available commands:</div>
-        {commands.map(c => (
-          <div key={c.cmd}>
-            <span className="text-purple-400 font-mono">{c.cmd.padEnd(10)}</span>
-            <span className="text-gray-400">- {c.desc}</span>
-          </div>
-        ))}
-        <div className="text-gray-500 mt-3 text-sm">Press Tab to autocomplete</div>
-      </div>
-    ),
-    about: (
-      <div className="space-y-2">
-        <div className="text-xl font-bold text-gradient">{profile.name}</div>
-        <div className="text-cyan-400">{profile.role}</div>
-        <div className="text-gray-300 mt-2">{profile.shortBio}</div>
-      </div>
-    ),
-    skills: (
-      <div className="space-y-2">
-        <div className="text-purple-400 font-semibold">Skills:</div>
-        {profile.skills.map((skill, i) => (
-          <div key={i} className="text-gray-300">{skill}</div>
-        ))}
-      </div>
-    ),
-    projects: (
-      <div className="space-y-2">
-        <div className="text-purple-400 font-semibold mb-2">Projects:</div>
-        {profile.projects.map((project, i) => (
-          <div key={i} className="ml-2">
-            <span className="text-cyan-400">▸</span> <span className="font-medium">{project.name}</span>
-            <div className="text-gray-400 ml-4 text-sm">{project.desc}</div>
-          </div>
-        ))}
-      </div>
-    ),
-    contact: (
-      <div className="space-y-2">
-        <div className="text-purple-400 font-semibold">Contact:</div>
-        <div>Email: <span className="text-cyan-400">{profile.contact.email}</span></div>
-        <div>GitHub: <span className="text-cyan-400">{profile.contact.github}</span></div>
-        <div>Location: <span className="text-cyan-400">{profile.contact.location}</span></div>
-      </div>
-    ),
-    resume: (
-      <div className="space-y-3">
-        <div className="text-purple-400 font-semibold">Resume:</div>
-        <button 
-          onClick={generateResumePDF}
-          className="mt-2 px-4 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 cursor-pointer transition-colors"
+  return (
+    <div className="font-mono text-sm space-y-1">
+      {lines.map((line, i) => (
+        <motion.div
+          key={i}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: line.delay / 1000 }}
+          className={line.success ? "text-cyan-400" : "text-slate-500"}
         >
-          ⬇ Download Resume
-        </button>
-      </div>
-    ),
-    gui: (
-      <span className="text-green-400">[+] Switching to Website Mode...</span>
-    ),
-  };
+          {line.success ? "✓" : ">"} {line.text}
+          {line.success && (
+            <span className="ml-2 text-violet-400">[ COMPLETE ]</span>
+          )}
+        </motion.div>
+      ))}
+    </div>
+  );
+};
 
-  const handleCommand = useCallback((cmd: string) => {
-    const trimmed = cmd.trim().toLowerCase();
-    const command = trimmed.split(" ")[0];
-    
-    if (!command) return;
-    
-    if (command === "clear") {
-      setOutputs([]);
-      return;
+export default function Terminal({ onSwitchToGui }: { onSwitchToGui: () => void }) {
+  const [history, setHistory] = useState<{ type: "input" | "output"; content: string }[]>([]);
+  const [input, setInput] = useState("");
+  const [booted, setBooted] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showHelp, setShowHelp] = useState(false);
+  const [showGuiPreview, setShowGuiPreview] = useState(false);
+  const [data, setData] = useState<TerminalData>({
+    profile: null,
+    skills: [],
+    projects: [],
+    education: [],
+    experience: [],
+  });
+  const [loading, setLoading] = useState(true);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const supabase = createClient();
+        const [profileRes, skillsRes, projectsRes, eduRes, expRes] = await Promise.all([
+          supabase.from("profiles").select("*").limit(1).maybeSingle(),
+          supabase.from("skills").select("*"),
+          supabase.from("projects").select("*"),
+          supabase.from("education").select("*"),
+          supabase.from("experience").select("*"),
+        ]);
+
+        setData({
+          profile: profileRes.data || null,
+          skills: skillsRes.data || [],
+          projects: projectsRes.data || [],
+          education: eduRes.data || [],
+          experience: expRes.data || [],
+        });
+      } catch (e) {
+        console.error("Error fetching terminal data:", e);
+      }
+      setLoading(false);
+    };
+    fetchData();
+  }, []);
+
+  const processCommand = useCallback((cmd: string): string => {
+    const command = cmd.trim().toLowerCase();
+    const { profile, skills, projects, education, experience } = data;
+
+    const name = profile?.name || "User";
+    const role = profile?.role || "Developer";
+    const location = profile?.location || "Unknown";
+    const email = profile?.email || "";
+    const bio = profile?.bio || "";
+    const github = profile?.github_link || "";
+    const linkedin = profile?.linkedin_link || "";
+
+    switch (command) {
+      case "help":
+        setShowHelp(true);
+        return `AVAILABLE COMMANDS:
+─────────────────────────────────────────
+about      - Learn about me
+skills     - View my technical skills
+projects   - Browse featured projects
+experience - View work experience
+education  - View education background
+contact    - Get contact information
+resume     - Download/view my resume
+github     - Visit GitHub profile
+linkedin   - Visit LinkedIn profile
+gui        - Switch to visual mode
+neofetch   - System info
+whoami     - Current user
+date       - Current date/time
+clear      - Clear screen
+─────────────────────────────────────────`;
+
+      case "about":
+        return `ABOUT ME
+═══════════════════════════════════════
+Name:     ${name}
+Role:     ${role}
+Location: ${location}
+
+${bio || "No bio available."}
+
+Education: Type 'education' for details
+Experience: Type 'experience' for details`;
+
+      case "skills":
+        if (skills.length === 0) return "No skills found in database.";
+        const grouped = skills.reduce((acc, skill) => {
+          acc[skill.category] = acc[skill.category] || [];
+          acc[skill.category].push(skill.name);
+          return acc;
+        }, {} as Record<string, string[]>);
+        let skillsOutput = `TECHNICAL SKILLS
+═══════════════════════════════════════`;
+        Object.entries(grouped).forEach(([cat, items]) => {
+          skillsOutput += `\n${cat.toUpperCase()}: ${items.join(", ")}`;
+        });
+        skillsOutput += `\n\nType 'gui' to see skills with icons.`;
+        return skillsOutput;
+
+      case "projects":
+        if (projects.length === 0) return "No projects found in database.";
+        let projectsOutput = `FEATURED PROJECTS
+═══════════════════════════════════════`;
+        projects.forEach((proj, i) => {
+          projectsOutput += `\n\n${i + 1}. ${proj.title}`;
+          projectsOutput += `\n   ${proj.description?.slice(0, 80)}${proj.description?.length > 80 ? "..." : ""}`;
+          if (proj.tech_stack?.length > 0) {
+            projectsOutput += `\n   Tech: ${proj.tech_stack.join(", ")}`;
+          }
+        });
+        projectsOutput += `\n\nUse 'gui' for full details with links.`;
+        return projectsOutput;
+
+      case "experience":
+        if (experience.length === 0) return "No experience found in database.";
+        let expOutput = `WORK EXPERIENCE
+═══════════════════════════════════════`;
+        experience.forEach((exp) => {
+          expOutput += `\n\n${exp.position}`;
+          expOutput += `\n${exp.company} | ${exp.start_date} - ${exp.currently_working ? "Present" : exp.end_date || ""}`;
+          if (exp.description) {
+            expOutput += `\n${exp.description.slice(0, 100)}${exp.description.length > 100 ? "..." : ""}`;
+          }
+        });
+        return expOutput;
+
+      case "education":
+        if (education.length === 0) return "No education found in database.";
+        let eduOutput = `EDUCATION
+═══════════════════════════════════════`;
+        education.forEach((edu) => {
+          eduOutput += `\n\n${edu.degree}${edu.field_of_study ? ` in ${edu.field_of_study}` : ""}`;
+          eduOutput += `\n${edu.institution}`;
+          eduOutput += `\n${edu.start_date} - ${edu.currently_studying ? "Present" : edu.end_date || ""}`;
+        });
+        return eduOutput;
+
+      case "contact":
+        return `CONTACT INFORMATION
+═══════════════════════════════════════
+Email:    ${email || "Not provided"}
+GitHub:   ${github || "Not provided"}
+LinkedIn: ${linkedin || "Not provided"}
+Location: ${location}`;
+
+      case "resume":
+        return `RESUME
+═══════════════════════════════════════
+Type 'resume download' to download PDF directly,
+or use 'gui' and visit Resume section.`;
+
+      case "resume download":
+        (async () => {
+          try {
+            const blob = await generateResumePDF({ profile, skills, projects, education, experience });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            const fileName = (profile?.name || 'resume') + '.pdf';
+            link.download = fileName;
+            link.click();
+            URL.revokeObjectURL(url);
+          } catch (e) {
+            console.error("Error generating PDF:", e);
+          }
+        })();
+        return "Generating and downloading resume PDF...";
+
+      case "github":
+        if (github) {
+          window.open(github, "_blank");
+          return `Opening ${github}...`;
+        }
+        return "GitHub link not configured.";
+
+      case "linkedin":
+        if (linkedin) {
+          window.open(linkedin, "_blank");
+          return `Opening ${linkedin}...`;
+        }
+        return "LinkedIn link not configured.";
+
+      case "gui":
+        setShowGuiPreview(true);
+        onSwitchToGui();
+        return "";
+
+      case "clear":
+        setHistory([]);
+        return "";
+
+      case "whoami":
+        return "guest@" + (profile?.name?.toLowerCase().replace(" ", "-") || "portfolio");
+
+      case "date":
+        return new Date().toLocaleString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+      case "neofetch":
+        return `╭──���───────────────────────────────╮
+│  ${profile?.name?.toUpperCase() || "PORTFOLIO"}         │
+│  ${profile?.role || "Developer"}      │
+╰──────────────────────────────────╯
+  OS:       Next.js 15.3
+  Host:     ${profile?.location || "Unknown"}
+  Contact:  ${profile?.email || "N/A"}
+  Projects: ${projects.length}
+  Skills:   ${skills.length}
+  v1.0.0`;
+
+      case "":
+        return "";
+
+      default:
+        return `Command not found: ${command}
+Type 'help' for available commands.`;
     }
-    
-    if (command === "gui") {
-      setOutputs(prev => [...prev, { id: Date.now().toString(), command: cmd, output: commandsOutput.gui }]);
-      setTimeout(() => onSwitchToGUI(), 500);
-      return;
-    }
-    
-    if (command === "resume") {
-      setOutputs(prev => [...prev, { id: Date.now().toString(), command: cmd, output: commandsOutput.resume }]);
-      generateResumePDF();
-      return;
-    }
-    
-    const output = commandsOutput[command];
-    if (output) {
-      setOutputs(prev => [...prev, { id: Date.now().toString(), command: cmd, output }]);
-    } else {
-      setOutputs(prev => [...prev, { 
-        id: Date.now().toString(), 
-        command: cmd, 
-        output: <span className="text-red-400">Command not found: '{command}'. Type 'help' for available commands.</span>
-      }]);
-    }
-  }, [commandsOutput, onSwitchToGUI, generateResumePDF]);
+  }, [data, onSwitchToGui]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (suggestion) {
-      setInput(suggestion);
-      setSuggestion("");
-    } else if (input.trim()) {
-      handleCommand(input);
-      setInput("");
+    if (!input.trim()) return;
+    
+    const output = processCommand(input);
+    if (output && !showHelp) {
+      setHistory([...history, { type: "input", content: input }, { type: "output", content: output }]);
+    } else if (showHelp || input.toLowerCase().startsWith("help")) {
+      setHistory([...history, { type: "input", content: input }, { type: "output", content: output }]);
+      setShowHelp(false);
+    }
+    setInput("");
+    setSuggestions([]);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInput(value);
+    
+    if (value.length > 0) {
+      const matches = Object.keys(commands).filter(cmd => cmd.startsWith(value.toLowerCase()));
+      setSuggestions(matches.slice(0, 5));
+    } else {
+      setSuggestions([]);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Tab" && suggestion) {
-      e.preventDefault();
-      setInput(suggestion);
-      setSuggestion("");
+  const selectSuggestion = (suggestion: string) => {
+    setInput(suggestion);
+    setSuggestions([]);
+    inputRef.current?.focus();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 font-mono p-4 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          <p className="text-slate-500">Loading database...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const handleGuiPreviewDownload = async () => {
+    try {
+      const { profile, skills, projects, education, experience } = data;
+      const blob = await generateResumePDF({ profile, skills, projects, education, experience });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const fileName = (profile?.name || 'resume') + '.pdf';
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Error generating PDF:", e);
     }
   };
 
-  const focusInput = () => inputRef.current?.focus();
+  if (showGuiPreview) {
+    const { profile, skills, projects, education, experience } = data;
+    return (
+      <div className="min-h-screen bg-slate-950 font-mono p-4 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }}
+            className="glass rounded-2xl p-8"
+          >
+            <h2 className="text-xl font-bold text-slate-200 mb-4">CV Preview</h2>
+            
+            {/* Header */}
+            <div className="border-b border-white/10 pb-4 mb-4">
+              <h3 className="text-lg font-bold text-slate-200">{profile?.name || "Your Name"}</h3>
+              <p className="text-cyan-400 text-sm">{profile?.role || "Full Stack Developer"}</p>
+              <div className="text-xs text-slate-400 mt-2 space-y-1">
+                {profile?.email && <p>Email: {profile.email}</p>}
+                {profile?.location && <p>Location: {profile.location}</p>}
+              </div>
+            </div>
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === "`") {
-        e.preventDefault();
-        onSwitchToGUI();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onSwitchToGUI]);
+            {/* Summary */}
+            {profile?.bio && (
+              <div className="mb-4">
+                <h4 className="text-sm font-semibold text-slate-300 mb-1">Summary</h4>
+                <p className="text-xs text-slate-400">{profile.bio.slice(0, 150)}...</p>
+              </div>
+            )}
+
+            {/* Skills */}
+            {skills.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-semibold text-slate-300 mb-1">Skills</h4>
+                <p className="text-xs text-slate-400">{skills.map(s => s.name).join(", ")}</p>
+              </div>
+            )}
+
+            {/* Projects count */}
+            {projects.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-semibold text-slate-300 mb-1">Projects</h4>
+                <p className="text-xs text-slate-400">{projects.map(p => p.title).join(", ")}</p>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-4 mt-6 pt-4 border-t border-white/10">
+              <button
+                onClick={handleGuiPreviewDownload}
+                className="px-4 py-2 bg-cyan-500 text-slate-950 text-sm font-medium rounded hover:bg-cyan-400"
+              >
+                Download PDF
+              </button>
+              <button
+                onClick={() => setShowGuiPreview(false)}
+                className="px-4 py-2 glass text-slate-300 text-sm rounded hover:bg-white/10"
+              >
+                Back to Terminal
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div 
-      className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4"
-    >
-      <div 
-        ref={terminalRef}
-        className="w-full max-w-3xl h-[70vh] bg-[#111111] border border-white/10 rounded-2xl overflow-hidden flex flex-col shadow-2xl shadow-black/50 font-mono"
-      >
-        <AnimatePresence mode="wait">
-          {!isReady ? (
-            <motion.div
-              key="boot"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex-1 flex items-center justify-center"
-            >
-              <div className="text-center space-y-4">
-                <div className="w-16 h-16 mx-auto rounded-full bg-cyan-500/20 flex items-center justify-center">
-                  <span className="text-2xl">⚡</span>
-                </div>
-                <div className="space-y-2">
-                  {bootLines.map((line, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: i <= bootIndex ? 1 : 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="text-gray-500 text-sm"
-                    >
-                      {line.text}
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="terminal"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex-1 overflow-y-auto p-4 space-y-1"
-            >
-              <div className="text-purple-400 mb-4">
-                <span className="text-cyan-400">➜</span> {profile.name}
-                <div className="text-gray-500 ml-1">{profile.role}</div>
-              </div>
-              
-              <div className="text-gray-500 mb-4 text-sm">
-                Type <span className="text-cyan-400">help</span> to see commands or <span className="text-cyan-400">gui</span> for website
-              </div>
+    <div className="min-h-screen bg-slate-950 font-mono p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        {!booted ? (
+          <BootSequence onComplete={() => setBooted(true)} />
+        ) : (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-3 h-3 rounded-full bg-red-500/80" />
+              <div className="w-3 h-3 rounded-full bg-amber-500/80" />
+              <div className="w-3 h-3 rounded-full bg-green-500/80" />
+              <span className="ml-4 text-slate-500 text-sm">
+                guest@{data.profile?.name?.toLowerCase().replace(" ", "-") || "portfolio"} ~
+              </span>
+            </div>
 
-              {outputs.map(({ id, command, output }) => (
-                <div key={id} className="space-y-1">
-                  <div>
-                    <span className="text-purple-400">guest@portfolio</span>
-                    <span className="text-gray-600">:$ </span>
-                    <span className="text-gray-200">{command}</span>
-                  </div>
-                  <div className="ml-2 text-gray-300">{output}</div>
-                </div>
-              ))}
-
-              <form onSubmit={handleSubmit} className="flex items-center">
-                <span className="text-purple-400">guest@portfolio</span>
-                <span className="text-gray-600">:$ </span>
-                <div className="relative flex-1">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    className="w-full bg-transparent outline-none text-white ml-0"
-                    autoFocus
-                    autoComplete="off"
-                    spellCheck={false}
-                  />
-                  {showCursor && input && (
-                    <span className="absolute right-0 w-2 h-5 bg-cyan-400 animate-pulse" />
+            <AnimatePresence>
+              {history.map((item, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="mb-2"
+                >
+                  {item.type === "input" ? (
+                    <div className="flex">
+                      <span className="text-cyan-400 mr-2">$</span>
+                      <span className="text-slate-200">{item.content}</span>
+                    </div>
+                  ) : (
+                    <pre className="text-slate-400 whitespace-pre-wrap text-sm">{item.content}</pre>
                   )}
-                </div>
-              </form>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+
+            <form onSubmit={handleSubmit} className="relative">
+              <div className="flex items-center">
+                <span className="text-cyan-400 mr-2">$</span>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={handleInputChange}
+                  className="flex-1 bg-transparent outline-none text-slate-200 placeholder-slate-600"
+                  placeholder="Type 'help' for commands"
+                  autoFocus
+                />
+              </div>
               
-              {suggestion && input && (
-                <div className="text-gray-500 text-sm mt-1">
-                  Suggestion: <span className="text-cyan-400 cursor-pointer" onClick={() => { setInput(suggestion); setSuggestion(""); }}>{suggestion}</span> (Press Tab)
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <AnimatePresence>
+                {suggestions.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute top-full left-0 mt-2 bg-slate-900/90 backdrop-blur-sm rounded-lg overflow-hidden z-10 border border-slate-800"
+                  >
+                    {suggestions.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => selectSuggestion(suggestion)}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-slate-800 transition-colors flex items-center justify-between"
+                      >
+                        <span className="text-cyan-400">{suggestion}</span>
+                        <span className="text-slate-500 text-xs">{commands[suggestion as keyof typeof commands]?.description}</span>
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </form>
+
+            <div className="mt-4 text-slate-600 text-xs">
+              <span className="text-cyan-400">Tip:</span> Type 'help' for commands, 'gui' for visual mode
+            </div>
+          </motion.div>
+        )}
       </div>
     </div>
   );

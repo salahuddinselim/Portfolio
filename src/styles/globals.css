@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #030712;
+    color: #f1f5f9;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  
+  ::selection {
+    background: #06b6d4;
+    color: #030712;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 100%);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 20px 40px rgba(0,0,0,0.4);
+  }
+  
+  .text-gradient {
+    background: linear-gradient(135deg, #06b6d4, #7c3aed);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .glow-primary {
+    box-shadow: 0 0 30px rgba(6, 182, 212, 0.3);
+  }
+  
+  .glow-secondary {
+    box-shadow: 0 0 30px rgba(124, 58, 237, 0.3);
+  }
+}

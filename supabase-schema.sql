@@ -1,211 +1,179 @@
+-- Supabase Database Schema for Portfolio
+-- Run this in your Supabase Dashboard > SQL Editor
+
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ============================================
--- TABLE: profiles
--- ============================================
-CREATE TABLE public.profiles (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name text,
-  role text,
-  bio text,
-  vision text,
-  location text,
-  profile_image text,
-  email text,
-  phone text,
-  status text DEFAULT 'Open to Work',
-  map_link text,
-  github_link text,
-  linkedin_link text,
-  twitter_link text,
-  facebook_link text,
-  instagram_link text,
-  discord_username text,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT profiles_pkey PRIMARY KEY (id)
+-- Create custom public schema
+CREATE SCHEMA IF NOT EXISTS public;
+
+-- Settings table (logo, title, etc.)
+CREATE TABLE IF NOT EXISTS public.settings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  logo_url TEXT,
+  site_title TEXT DEFAULT 'My Portfolio',
+  site_description TEXT DEFAULT 'Personal Portfolio Website',
+  favicon_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================
--- TABLE: education
--- ============================================
-CREATE TABLE public.education (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  institution text NOT NULL,
-  degree text,
-  field_of_study text,
-  start_date text,
-  end_date text,
-  grade text,
-  currently_studying boolean DEFAULT false,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT education_pkey PRIMARY KEY (id)
+-- Profile table
+CREATE TABLE IF NOT EXISTS public.profile (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  title TEXT,
+  bio TEXT,
+  email TEXT,
+  location TEXT,
+  github_url TEXT,
+  linkedin_url TEXT,
+  facebook_url TEXT,
+  instagram_url TEXT,
+  profile_image_url TEXT,
+  resume_url TEXT,
+  status TEXT DEFAULT 'available',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================
--- TABLE: experience
--- ============================================
-CREATE TABLE public.experience (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  company text NOT NULL,
-  position text,
-  location text,
-  start_date text,
-  end_date text,
-  description text,
-  currently_working boolean DEFAULT false,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT experience_pkey PRIMARY KEY (id)
+-- Education table
+CREATE TABLE IF NOT EXISTS public.education (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  institution TEXT NOT NULL,
+  degree TEXT NOT NULL,
+  field_of_study TEXT,
+  start_date TEXT,
+  end_date TEXT,
+  location TEXT,
+  description TEXT,
+  order_index INT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================
--- TABLE: skills
--- ============================================
-CREATE TABLE public.skills (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  category text NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT skills_pkey PRIMARY KEY (id)
+-- Experience table
+CREATE TABLE IF NOT EXISTS public.experience (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  company TEXT NOT NULL,
+  position TEXT NOT NULL,
+  location TEXT,
+  start_date TEXT,
+  end_date TEXT,
+  is_current BOOLEAN DEFAULT false,
+  description TEXT,
+  order_index INT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================
--- TABLE: projects
--- ============================================
-CREATE TABLE public.projects (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  title text NOT NULL,
-  description text,
-  tech_stack text[],
-  github_link text,
-  live_link text,
-  image text,
-  featured boolean DEFAULT false,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT projects_pkey PRIMARY KEY (id)
+-- Skills table
+CREATE TABLE IF NOT EXISTS public.skills (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  icon TEXT,
+  color TEXT,
+  order_index INT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================
--- TABLE: photos
--- ============================================
-CREATE TABLE public.photos (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  url text NOT NULL,
-  caption text,
-  category text DEFAULT 'work',
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT photos_pkey PRIMARY KEY (id)
+-- Projects table
+CREATE TABLE IF NOT EXISTS public.projects (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  description TEXT,
+  image_url TEXT,
+  tech_stack TEXT[],
+  github_url TEXT,
+  live_url TEXT,
+  featured BOOLEAN DEFAULT true,
+  order_index INT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================
--- TABLE: blogs
--- ============================================
-CREATE TABLE public.blogs (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  title text NOT NULL,
-  slug text NOT NULL UNIQUE,
-  content text,
-  excerpt text,
-  cover_image text,
-  tags text[],
-  published boolean DEFAULT false,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT blogs_pkey PRIMARY KEY (id)
+-- Social links table
+CREATE TABLE IF NOT EXISTS public.social_links (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  platform TEXT NOT NULL,
+  url TEXT NOT NULL,
+  icon TEXT,
+  order_index INT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================
--- ENABLE ROW LEVEL SECURITY (RLS)
--- ============================================
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+-- Admin users table (for simple auth)
+CREATE TABLE IF NOT EXISTS public.admin_users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  name TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Insert default settings
+INSERT INTO public.settings (site_title, site_description)
+VALUES ('My Portfolio', 'Personal Portfolio Website')
+ON CONFLICT DO NOTHING;
+
+-- Insert default profile
+INSERT INTO public.profile (name, title, bio, location, email, status)
+VALUES ('Your Name', 'Full Stack Developer', 'A brief bio about yourself.', 'Your Location', 'email@example.com', 'available')
+ON CONFLICT DO NOTHING;
+
+-- Enable Row Level Security
+ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profile ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.education ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.experience ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.skills ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.photos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.blogs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.social_links ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
 
--- ============================================
--- RLS POLICIES (Read Access - Public)
--- ============================================
-CREATE POLICY "profiles_read" ON public.profiles FOR SELECT USING (true);
-CREATE POLICY "education_read" ON public.education FOR SELECT USING (true);
-CREATE POLICY "experience_read" ON public.experience FOR SELECT USING (true);
-CREATE POLICY "skills_read" ON public.skills FOR SELECT USING (true);
-CREATE POLICY "projects_read" ON public.projects FOR SELECT USING (true);
-CREATE POLICY "photos_read" ON public.photos FOR SELECT USING (true);
-CREATE POLICY "blogs_read" ON public.blogs FOR SELECT USING (true);
+-- Create policies (public read, admin write)
+-- Settings
+CREATE POLICY "Public can read settings" ON public.settings FOR SELECT USING (true);
+CREATE POLICY "Admin can update settings" ON public.settings FOR ALL USING (true);
 
--- RLS Policies (Write Access - Authenticated Users)
-CREATE POLICY "profiles_write" ON public.profiles FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "education_write" ON public.education FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "experience_write" ON public.experience FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "skills_write" ON public.skills FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "projects_write" ON public.projects FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "photos_write" ON public.photos FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "blogs_write" ON public.blogs FOR ALL USING (auth.role() = 'authenticated');
+-- Profile
+CREATE POLICY "Public can read profile" ON public.profile FOR SELECT USING (true);
+CREATE POLICY "Admin can update profile" ON public.profile FOR ALL USING (true);
 
--- ============================================
--- INSERT SAMPLE DATA
--- ============================================
+-- Education
+CREATE POLICY "Public can read education" ON public.education FOR SELECT USING (true);
+CREATE POLICY "Admin can manage education" ON public.education FOR ALL USING (true);
 
--- Insert default profile
-INSERT INTO public.profiles (name, role, bio, vision, location, email, phone, status, github_link, linkedin_link, facebook_link, instagram_link, profile_image)
-VALUES (
-  'Salah Uddin Selim',
-  'Software Engineer',
-  'Computer Science and Engineering student at United International University with strong skills in programming, software development, and problem-solving. Experienced in IoT systems, AI-based applications, and full-stack web development.',
-  'Passionate about building impactful solutions and continuously learning modern technologies.',
-  'Vatara, Dhaka, Bangladesh',
-  'selimsalahuddin19@gmail.com',
-  '+880 1234 567890',
-  'Open to Work',
-  'https://github.com/salahuddinselim',
-  'https://linkedin.com/in/salahuddinselim',
-  'https://facebook.com/salahuddinselim',
-  'https://instagram.com/salahuddinselim',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face'
-);
+-- Experience
+CREATE POLICY "Public can read experience" ON public.experience FOR SELECT USING (true);
+CREATE POLICY "Admin can manage experience" ON public.experience FOR ALL USING (true);
 
--- Insert education
-INSERT INTO public.education (institution, degree, field_of_study, start_date, end_date, grade, currently_studying)
-VALUES 
-  ('United International University', 'BSc', 'Computer Science & Engineering', '2022', '', '', true),
-  ('Pirganj Govt. College', 'HSC', 'Science', '2018', '2020', '5.00', false),
-  ('Pirganj Pilot High School', 'SSC', 'Science', '2013', '2018', '5.00', false);
+-- Skills
+CREATE POLICY "Public can read skills" ON public.skills FOR SELECT USING (true);
+CREATE POLICY "Admin can manage skills" ON public.skills FOR ALL USING (true);
 
--- Insert experience
-INSERT INTO public.experience (company, position, location, start_date, end_date, description, currently_working)
-VALUES
-  ('Freelance', 'Full-Stack Developer', 'Remote', '2022', '', 'Building web applications and IoT solutions for clients worldwide.', true);
+-- Projects
+CREATE POLICY "Public can read projects" ON public.projects FOR SELECT USING (true);
+CREATE POLICY "Admin can manage projects" ON public.projects FOR ALL USING (true);
 
--- Insert skills
-INSERT INTO public.skills (name, category)
-VALUES
-  ('JavaScript', 'Frontend'),
-  ('React', 'Frontend'),
-  ('Next.js', 'Frontend'),
-  ('TypeScript', 'Languages'),
-  ('Python', 'Languages'),
-  ('Node.js', 'Backend'),
-  ('PostgreSQL', 'Database'),
-  ('MySQL', 'Database'),
-  ('Git', 'Tools'),
-  ('Arduino', 'Tools'),
-  ('C++', 'Languages'),
-  ('Java', 'Languages');
+-- Social Links
+CREATE POLICY "Public can read social_links" ON public.social_links FOR SELECT USING (true);
+CREATE POLICY "Admin can manage social_links" ON public.social_links FOR ALL USING (true);
 
--- Insert projects
-INSERT INTO public.projects (title, description, tech_stack, github_link, image, featured)
-VALUES
-  ('Automated Fish Pond', 'IoT-based smart water quality monitoring system using Arduino with sensors for temperature, pH, turbidity, and gas.', ARRAY['Arduino', 'C++', 'Sensors', 'IoT'], 'https://github.com/salahuddinselim', 'https://images.unsplash.com/photo-1518182170546-0766ce6f6a56?w=600&h=400&fit=crop', true),
-  ('AI Voice Assistant', 'Python-based voice assistant using SpeechRecognition and Pyttsx3 for executing commands.', ARRAY['Python', 'AI', 'Speech Recognition'], 'https://github.com/salahuddinselim', 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=600&h=400&fit=crop', true),
-  ('TournyMate', 'Full-stack web application using PHP and MySQL to manage tournaments.', ARRAY['PHP', 'MySQL', 'HTML', 'CSS'], 'https://github.com/salahuddinselim', 'https://images.unsplash.com/photo-1460925895917-afdab827c01f?w=600&h=400&fit=crop', false),
-  ('Multilevel Puzzle Game', 'JavaFX-based team puzzle game with real-time chat.', ARRAY['Java', 'JavaFX', 'Multithreading'], 'https://github.com/salahuddinselim', 'https://images.unsplash.com/photo-1551103782-8ab07afd45d1?w=600&h=400&fit=crop', false);
+-- Admin Users (only admin can manage)
+CREATE POLICY "Admin can manage admin_users" ON public.admin_users FOR ALL USING (true);
 
--- ============================================
--- DONE!
--- ============================================
-SELECT 'Database setup complete!' as status;
+-- Storage bucket for images
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('portfolio', 'portfolio', true)
+ON CONFLICT DO NOTHING;
+
+CREATE POLICY "Public can view portfolio images" ON storage.objects
+FOR SELECT USING (bucket_id = 'portfolio');
+
+CREATE POLICY "Admin can upload portfolio images" ON storage.objects
+FOR INSERT WITH CHECK (bucket_id = 'portfolio');
+
+CREATE POLICY "Admin can delete portfolio images" ON storage.objects
+FOR DELETE USING (bucket_id = 'portfolio');
+
+-- Console output
+SELECT 'Database schema created successfully!';
