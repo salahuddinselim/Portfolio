@@ -90,20 +90,20 @@ export default function Hero() {
             </Link>
           </div>
           
-          <div className="flex items-center gap-6 pt-4">
+          <div className="flex items-center gap-6 pt-4" role="list" aria-label="Social links">
             {github_link && (
-              <a href={github_link} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400">
-                <FiGithub className="w-6 h-6" />
+              <a href={github_link} target="_blank" rel="noopener noreferrer" aria-label="GitHub Profile" className="text-slate-500 hover:text-cyan-400">
+                <FiGithub className="w-6 h-6" aria-hidden="true" />
               </a>
             )}
             {linkedin_link && (
-              <a href={linkedin_link} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-cyan-400">
-                <FiLinkedin className="w-6 h-6" />
+              <a href={linkedin_link} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn Profile" className="text-slate-500 hover:text-cyan-400">
+                <FiLinkedin className="w-6 h-6" aria-hidden="true" />
               </a>
             )}
             {email && (
-              <a href={`mailto:${email}`} className="text-slate-500 hover:text-cyan-400">
-                <FiMail className="w-6 h-6" />
+              <a href={`mailto:${email}`} aria-label="Send Email" className="text-slate-500 hover:text-cyan-400">
+                <FiMail className="w-6 h-6" aria-hidden="true" />
               </a>
             )}
           </div>
@@ -119,9 +119,14 @@ export default function Hero() {
             <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/30 to-violet-500/30 rounded-full blur-3xl" />
             <div className="relative w-72 h-72 md:w-96 md:h-96 rounded-full overflow-hidden bg-slate-800 border border-white/10">
               {profile_image ? (
-                <img src={profile_image} alt={name} className="w-full h-full object-cover" />
+                <img 
+                  src={profile_image} 
+                  alt={`${name} - ${role}`} 
+                  className="w-full h-full object-cover"
+                  loading="eager"
+                />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-slate-600">
+                <div className="w-full h-full flex items-center justify-center text-slate-600" aria-label="Profile placeholder">
                   <FiExternalLink className="w-20 h-20" />
                 </div>
               )}
