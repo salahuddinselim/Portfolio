@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Portfolio Website
 
 An interactive terminal-style portfolio with visual UI and admin panel. Data is stored in Supabase database.
@@ -152,3 +153,6 @@ src/
 ### Need help?
 - Open an issue on GitHub
 - Email: support@example.com
+=======
+# Portfolio
+>>>>>>> 131cdf539f08a1c116af5443be2d7515b5c2a2b4
