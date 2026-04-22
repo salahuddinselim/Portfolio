@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { createClient } from "@/lib/supabase";
+import PersonSchema from "@/components/PersonSchema";
 import "../styles/globals.css";
 
 export const revalidate = 60;
@@ -30,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
     // Use defaults if database not connected
   }
 
-  const url = process.env.NEXT_PUBLIC_SITE_URL || "https://portfolio.com";
+  const url = process.env.NEXT_PUBLIC_SITE_URL || "https://salahuddinselim-pi.vercel.app";
 
   return {
     metadataBase: new URL(url),
@@ -95,6 +96,7 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body className="bg-slate-950 text-slate-200 antialiased">
+        <PersonSchema />
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-cyan-500 focus:text-slate-950 focus:rounded-lg"
