@@ -8,6 +8,10 @@ import { createClient } from "@/lib/supabase";
 
 export default function Contact() {
   const [profile, setProfile] = useState<any>(null);
+  const [formData, setFormData] = useState({ name: "", email: "", message: "" });
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -28,6 +32,32 @@ export default function Contact() {
   const linkedin = profile?.linkedin_link;
   const facebook = profile?.facebook_link;
   const instagram = profile?.instagram_link;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSending(true);
+    setError("");
+    setSent(false);
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (res.ok) {
+        setSent(true);
+        setFormData({ name: "", email: "", message: "" });
+      } else {
+        setError("Failed to send message. Please try again.");
+      }
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+    }
+
+    setSending(false);
+  };
 
   return (
     <section id="contact" className="py-24">
@@ -93,60 +123,59 @@ export default function Contact() {
                 )}
               </div>
               
-              {/* Social Links */}
               <motion.div className="flex items-center gap-3 mt-6 pt-6 border-t border-white/5">
                 {github && (
-<motion.a
-                  href={github}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="GitHub Profile"
-                  className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center text-slate-500 hover:text-cyan-400 hover:bg-white/10 transition-colors"
-                  whileHover={{ scale: 1.1, y: -3 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <FiGithub className="w-5 h-5" aria-hidden="true" />
-                </motion.a>
-              )}
-              {linkedin && (
-                <motion.a
-                  href={linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="LinkedIn Profile"
-                  className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center text-slate-500 hover:text-cyan-400 hover:bg-white/10 transition-colors"
-                  whileHover={{ scale: 1.1, y: -3 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <FiLinkedin className="w-5 h-5" aria-hidden="true" />
-                </motion.a>
-              )}
-              {facebook && (
-                <motion.a
-                  href={facebook}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Facebook Profile"
-                  className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center text-slate-500 hover:text-blue-400 hover:bg-white/10 transition-colors"
-                  whileHover={{ scale: 1.1, y: -3 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <FaFacebook className="w-5 h-5" aria-hidden="true" />
-                </motion.a>
-              )}
-              {instagram && (
-                <motion.a
-                  href={instagram}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Instagram Profile"
-                  className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center text-slate-500 hover:text-pink-400 hover:bg-white/10 transition-colors"
-                  whileHover={{ scale: 1.1, y: -3 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <FaInstagram className="w-5 h-5" aria-hidden="true" />
-                </motion.a>
-              )}
+                  <motion.a
+                    href={github}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="GitHub Profile"
+                    className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center text-slate-500 hover:text-cyan-400 hover:bg-white/10 transition-colors"
+                    whileHover={{ scale: 1.1, y: -3 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <FiGithub className="w-5 h-5" aria-hidden="true" />
+                  </motion.a>
+                )}
+                {linkedin && (
+                  <motion.a
+                    href={linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="LinkedIn Profile"
+                    className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center text-slate-500 hover:text-cyan-400 hover:bg-white/10 transition-colors"
+                    whileHover={{ scale: 1.1, y: -3 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <FiLinkedin className="w-5 h-5" aria-hidden="true" />
+                  </motion.a>
+                )}
+                {facebook && (
+                  <motion.a
+                    href={facebook}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Facebook Profile"
+                    className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center text-slate-500 hover:text-blue-400 hover:bg-white/10 transition-colors"
+                    whileHover={{ scale: 1.1, y: -3 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <FaFacebook className="w-5 h-5" aria-hidden="true" />
+                  </motion.a>
+                )}
+                {instagram && (
+                  <motion.a
+                    href={instagram}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Instagram Profile"
+                    className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center text-slate-500 hover:text-pink-400 hover:bg-white/10 transition-colors"
+                    whileHover={{ scale: 1.1, y: -3 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <FaInstagram className="w-5 h-5" aria-hidden="true" />
+                  </motion.a>
+                )}
               </motion.div>
             </motion.div>
           </motion.div>
@@ -159,7 +188,19 @@ export default function Contact() {
           >
             <h3 className="font-display text-xl font-semibold mb-6">Send a Message</h3>
             
-            <form className="space-y-4" aria-label="Contact form">
+            {sent && (
+              <div className="mb-4 p-4 bg-green-500/20 border border-green-500/30 rounded-lg text-green-400">
+                Message sent successfully! I will get back to you soon.
+              </div>
+            )}
+            
+            {error && (
+              <div className="mb-4 p-4 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400">
+                {error}
+              </div>
+            )}
+            
+            <form onSubmit={handleSubmit} className="space-y-4" aria-label="Contact form">
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -171,6 +212,9 @@ export default function Contact() {
                   type="text"
                   placeholder="Your Name"
                   autoComplete="name"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 transition-colors"
                 />
               </motion.div>
@@ -186,6 +230,9 @@ export default function Contact() {
                   type="email"
                   placeholder="Your Email"
                   autoComplete="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 transition-colors"
                 />
               </motion.div>
@@ -200,17 +247,21 @@ export default function Contact() {
                   id="contact-message"
                   placeholder="Your Message"
                   rows={4}
+                  required
+                  value={formData.message}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                   className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-lg text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 transition-colors resize-none"
                 />
               </motion.div>
               <motion.button
                 type="submit"
-                className="w-full px-6 py-3 bg-cyan-500 text-slate-950 font-medium rounded-lg hover:bg-cyan-400 transition-all flex items-center justify-center gap-2 glow-primary"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                disabled={sending}
+                className="w-full px-6 py-3 bg-cyan-500 text-slate-950 font-medium rounded-lg hover:bg-cyan-400 transition-all flex items-center justify-center gap-2 glow-primary disabled:opacity-50"
+                whileHover={{ scale: sending ? 1 : 1.02 }}
+                whileTap={{ scale: sending ? 1 : 0.98 }}
               >
                 <FiSend className="w-4 h-4" aria-hidden="true" />
-                Send Message
+                {sending ? "Sending..." : "Send Message"}
               </motion.button>
             </form>
           </motion.div>
